@@ -34,7 +34,7 @@ public class CartController {
 	@SuppressWarnings("unchecked")
 	@PostMapping("/add")
 	public ResponseEntity<Object> addToCart(@RequestParam long productId) {
-		if ( productId > 0 ) {
+		if (productId > 0) {
 			if (session.get(Constants.CART) == null) {
 				List<Product> cartItems = new ArrayList<>();
 				Product product = restService.getProduct(productId);
@@ -47,9 +47,7 @@ public class CartController {
 				List<Product> cartItems = (List<Product>) session.get(Constants.CART);
 				int index = exists(productId, cartItems);
 				if (index > -1) {
-					int quantity = cartItems.get(index).getQuantity();
-					cartItems.get(index).setQuantity(quantity + 1);
-					session.put(Constants.CART, cartItems);
+					return Response.doResponse("Product already in cart", false, HttpStatus.OK);
 				} else {
 					Product product = restService.getProduct(productId);
 					if (product != null) {
@@ -68,11 +66,19 @@ public class CartController {
 	@SuppressWarnings("unchecked")
 	@GetMapping("/cartSummary")
 	public ResponseEntity<Object> getCartItem() {
+		List<Product> cartItems = (List<Product>) session.get(Constants.CART);
+		if (cartItems == null)
+			return Response.doResponse(null, true, HttpStatus.OK);
 		CartSummary cartSummary = new CartSummary();
-		cartSummary.setCartItems((List<Product>) session.get(Constants.CART));
-		if (cartSummary.getCartItems() != null && !cartSummary.getCartItems().isEmpty())
-			return Response.doResponse(cartSummary, true, HttpStatus.OK);
-		return Response.doResponse(null, true, HttpStatus.OK);
+		cartSummary.setCartItems(cartItems);
+		double price = 0;
+		for (Product item : cartItems) {
+			price = price + item.getPrice();
+		}
+		cartSummary.setTaxAmount(price * cartSummary.getTax() / 100);
+		cartSummary.setTotal(price);
+		cartSummary.setGrandTotal(price + cartSummary.getTaxAmount() + cartSummary.getShippingChares());
+		return Response.doResponse(cartSummary, true, HttpStatus.OK);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -111,7 +117,7 @@ public class CartController {
 		session.clear();
 		return Response.doResponse(true, true, HttpStatus.OK);
 	}
-	
+
 	@GetMapping("/clearCart")
 	public ResponseEntity<Object> clearCart() {
 		session.clear();
